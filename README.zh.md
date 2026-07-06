@@ -49,7 +49,7 @@ yum install sshpass coreutils
 
 ```bash
 # 设置目标统一密码 (推荐)
-export TARGET_PASSWORD="NessusTemp2024!"
+export TARGET_PASSWORD="NessusTemp2026!"
 
 # 三种模式:
 
@@ -180,7 +180,7 @@ cat > inventory.txt <<EOF
 EOF
 
 # 2. 干跑验证
-export TARGET_PASSWORD="TempNessus2024!"
+export TARGET_PASSWORD="TempNessus2026!"
 bash CredAlign.sh --dry-run
 
 # 3. 执行修改

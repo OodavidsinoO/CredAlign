@@ -49,7 +49,7 @@ yum install sshpass coreutils
 
 ```bash
 # Set the unified target password (recommended)
-export TARGET_PASSWORD="NessusTemp2024!"
+export TARGET_PASSWORD="NessusTemp2026!"
 
 # Three modes:
 
@@ -180,7 +180,7 @@ cat > inventory.txt <<EOF
 EOF
 
 # 2. Dry-run verification
-export TARGET_PASSWORD="TempNessus2024!"
+export TARGET_PASSWORD="TempNessus2026!"
 bash CredAlign.sh --dry-run
 
 # 3. Execute change
