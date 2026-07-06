@@ -1,0 +1,4 @@
+192.168.1.10,admin,P@ssw0rd123
+192.168.1.11,ops,P@ssw0rd456
+192.168.1.12,deploy,deploy!pass
+192.168.1.13,monitor,s3cur3P@ss

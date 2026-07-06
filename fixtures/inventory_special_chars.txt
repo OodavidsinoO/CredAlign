@@ -1,0 +1,6 @@
+192.168.1.10,admin,pass
+192.168.1.11,ops,p@$$'w0rd!
+192.168.1.12,deploy,deploy"pass
+192.168.1.13,monitor,pass`with`backticks
+192.168.1.14,test,pass\with\backslashes
+192.168.1.15,demo,pass${HOME}var
