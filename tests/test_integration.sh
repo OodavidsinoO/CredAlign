@@ -86,7 +86,7 @@ test_dry_run() {
     cd "$TMPD"
 
     # Remove any state file from previous runs
-    rm -f "$TMPD"/credflip_state_*.txt
+    rm -f "$TMPD"/credalign_state_*.txt
 
     local out ec
     out=$(TARGET_PASSWORD="$TARGET_PASSWORD" bash ./CredAlign.sh --dry-run 2>&1)
@@ -106,7 +106,7 @@ test_dry_run() {
     fi
 
     # Dry run should NOT write state file
-    local sf; sf=$(ls "$TMPD"/credflip_state_*.txt 2>/dev/null || true)
+    local sf; sf=$(ls "$TMPD"/credalign_state_*.txt 2>/dev/null || true)
     if [[ -z "$sf" || ! -s "$sf" ]]; then
         ok "dry-run did NOT write state file"
     else
@@ -121,7 +121,7 @@ test_change() {
     header "Test 2: --change"
 
     cd "$TMPD"
-    rm -f credflip_state_*.txt credflip_errors.log
+    rm -f credalign_state_*.txt credalign_errors.log
 
     local out ec
     out=$(TARGET_PASSWORD="$TARGET_PASSWORD" bash ./CredAlign.sh --change 2>&1)
@@ -142,7 +142,7 @@ test_change() {
     fi
 
     # State file should have SUCCESS_CHANGE
-    local sf; sf=$(ls "$TMPD"/credflip_state_*.txt 2>/dev/null || true)
+    local sf; sf=$(ls "$TMPD"/credalign_state_*.txt 2>/dev/null || true)
     if [[ -n "$sf" && -s "$sf" ]]; then
         ok "state file exists after change"
         if grep -q 'SUCCESS_CHANGE' "$sf"; then
@@ -205,7 +205,7 @@ test_revert() {
     header "Test 4: --revert"
 
     cd "$TMPD"
-    rm -f credflip_state_*.txt credflip_errors.log
+    rm -f credalign_state_*.txt credalign_errors.log
 
     local out ec
     out=$(TARGET_PASSWORD="$TARGET_PASSWORD" bash ./CredAlign.sh --revert 2>&1)
@@ -226,7 +226,7 @@ test_revert() {
     fi
 
     # State file should have SUCCESS_REVERT
-    local sf; sf=$(ls "$TMPD"/credflip_state_*.txt 2>/dev/null || true)
+    local sf; sf=$(ls "$TMPD"/credalign_state_*.txt 2>/dev/null || true)
     if [[ -n "$sf" && -s "$sf" ]] && grep -q 'SUCCESS_REVERT' "$sf"; then
         ok "state file contains SUCCESS_REVERT"
     else
@@ -285,7 +285,7 @@ test_e2e_cycle() {
     cd "$TMPD"
 
     # Remove state to start fresh
-    rm -f credflip_state_*.txt credflip_errors.log
+    rm -f credalign_state_*.txt credalign_errors.log
 
     # Step 1: Ensure original state
     if ! test_ssh_conn "$TEST_USER" "$TEST_ORIG_PASS"; then
@@ -337,11 +337,11 @@ test_adaptive_auth() {
     header "Test 7: Adaptive Auth (fallback when already at target)"
 
     cd "$TMPD"
-    rm -f credflip_state_*.txt credflip_errors.log
+    rm -f credalign_state_*.txt credalign_errors.log
 
     # Ensure we are at original password
     TARGET_PASSWORD="$TARGET_PASSWORD" bash ./CredAlign.sh --revert >/dev/null 2>&1 || true
-    rm -f credflip_state_*.txt credflip_errors.log
+    rm -f credalign_state_*.txt credalign_errors.log
 
     # Step 1: Change to target using the script
     local out; out=$(TARGET_PASSWORD="$TARGET_PASSWORD" bash ./CredAlign.sh --change 2>&1)
@@ -352,7 +352,7 @@ test_adaptive_auth() {
     ok "adaptive auth: first change OK"
 
     # Step 2: Remove state file so the script discovers state via auth
-    rm -f credflip_state_*.txt credflip_errors.log
+    rm -f credalign_state_*.txt credalign_errors.log
 
     # Step 3: Run --change again: original password should fail,
     # fallback with TARGET_PASSWORD should succeed
@@ -376,7 +376,7 @@ test_lock() {
     header "Test 8: Lock Prevents Concurrent Execution"
 
     cd "$TMPD"
-    rm -f credflip_state_*.txt credflip_errors.log "/tmp/credalign_${UID:-$(id -u)}.lock"
+    rm -f credalign_state_*.txt credalign_errors.log "/tmp/credalign_${UID:-$(id -u)}.lock"
 
     # Hold the lock for 5 seconds to simulate a long-running instance
     flock "/tmp/credalign_${UID:-$(id -u)}.lock" sleep 5 &

@@ -104,9 +104,9 @@ If `TARGET_PASSWORD` is not set, the script prompts interactively (with confirma
 
 | File | Description |
 |---|---|
-| `credflip_state_YYYYMMDD.txt` | Daily state ledger: `ip,username,status,timestamp` |
-| `credflip_errors.log` | Error log (auto-rotated at >10MB) |
-| `credflip_debug.log` | Debug log (only when DEBUG=1) |
+| `credalign_state_YYYYMMDD.txt` | Daily state ledger: `ip,username,status,timestamp` |
+| `credalign_errors.log` | Error log (auto-rotated at >10MB) |
+| `credalign_debug.log` | Debug log (only when DEBUG=1) |
 
 ### State File Example
 
@@ -143,7 +143,7 @@ Entries matching the current mode's status are **automatically skipped** on re-r
 | Code | Meaning |
 |---|---|
 | 0 | All targets OK |
-| 1 | Partial failures (check `credflip_errors.log`) |
+| 1 | Partial failures (check `credalign_errors.log`) |
 | 2 | Bad arguments |
 | 3 | Preconditions not met (missing tools / root in inventory) |
 | 4 | Interrupted (SIGINT/SIGTERM) |

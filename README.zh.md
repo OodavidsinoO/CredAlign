@@ -104,9 +104,9 @@ bash CredAlign.sh --revert
 
 | 文件 | 说明 |
 |---|---|
-| `credflip_state_YYYYMMDD.txt` | 每日状态台账: `ip,username,status,timestamp` |
-| `credflip_errors.log` | 错误日志 (>10MB 自动轮转) |
-| `credflip_debug.log` | 调试日志 (仅 DEBUG=1 时) |
+| `credalign_state_YYYYMMDD.txt` | 每日状态台账: `ip,username,status,timestamp` |
+| `credalign_errors.log` | 错误日志 (>10MB 自动轮转) |
+| `credalign_debug.log` | 调试日志 (仅 DEBUG=1 时) |
 
 ### 状态文件示例
 
@@ -143,7 +143,7 @@ bash CredAlign.sh --revert
 | 码 | 含义 |
 |---|---|
 | 0 | 全部成功 |
-| 1 | 部分主机失败 (查看 `credflip_errors.log`) |
+| 1 | 部分主机失败 (查看 `credalign_errors.log`) |
 | 2 | 参数错误 |
 | 3 | 前置条件不满足 (工具缺失/root 拒绝) |
 | 4 | 用户中断 (SIGINT/SIGTERM) |

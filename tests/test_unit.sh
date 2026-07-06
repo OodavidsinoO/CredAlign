@@ -265,7 +265,7 @@ test_state_file() {
     local tmpd="/tmp/credalign_test_state_$$"; mkdir -p "$tmpd"
     cp "$PROJECT_DIR/CredAlign.sh" "$tmpd/"
     cp "$FIXTURES_DIR/inventory_unit_test.txt" "$tmpd/inventory.txt"
-    local sf="credflip_state_$(date +%Y%m%d).txt"
+    local sf="credalign_state_$(date +%Y%m%d).txt"
     printf '127.0.0.2,testuser,SUCCESS_CHANGE,1234567890\n' > "$tmpd/$sf"
     local out ec
     out=$(cd "$tmpd" && TARGET_PASSWORD="testtest" bash ./CredAlign.sh --change 2>&1); ec=$?
@@ -298,7 +298,7 @@ test_dry_run_isolation() {
     local tmpd="/tmp/credalign_test_dry_$$"; mkdir -p "$tmpd"
     cp "$PROJECT_DIR/CredAlign.sh" "$tmpd/"
     cp "$FIXTURES_DIR/inventory_unit_test.txt" "$tmpd/inventory.txt"
-    local sf="credflip_state_$(date +%Y%m%d).txt"
+    local sf="credalign_state_$(date +%Y%m%d).txt"
     (cd "$tmpd" && TARGET_PASSWORD="x" bash ./CredAlign.sh --dry-run >/dev/null 2>&1) || true
     if [[ ! -f "$tmpd/$sf" ]]; then ok "dry-run → no state file created"
     elif [[ ! -s "$tmpd/$sf" ]]; then ok "dry-run → state file empty"
@@ -312,12 +312,12 @@ test_log_rotation() {
     local tmpd="/tmp/credalign_test_log_$$"; mkdir -p "$tmpd"
     cp "$PROJECT_DIR/CredAlign.sh" "$tmpd/"
     cp "$FIXTURES_DIR/inventory_unit_test.txt" "$tmpd/inventory.txt"
-    dd if=/dev/zero of="$tmpd/credflip_errors.log" bs=1M count=11 2>/dev/null
+    dd if=/dev/zero of="$tmpd/credalign_errors.log" bs=1M count=11 2>/dev/null
     (cd "$tmpd" && TARGET_PASSWORD="x" bash ./CredAlign.sh --dry-run >/dev/null 2>&1) || true
-    local sz; sz=$(stat -c%s "$tmpd/credflip_errors.log" 2>/dev/null || echo 0)
+    local sz; sz=$(stat -c%s "$tmpd/credalign_errors.log" 2>/dev/null || echo 0)
     if [[ "$sz" -lt 10485760 ]]; then ok "large error log → rotated (now ${sz} bytes)"
     else fail "error log NOT rotated, still ${sz} bytes"; fi
-    local rc; rc=$(ls "$tmpd"/credflip_errors.log.* 2>/dev/null | wc -l)
+    local rc; rc=$(ls "$tmpd"/credalign_errors.log.* 2>/dev/null | wc -l)
     if [[ "$rc" -ge 1 ]]; then ok "rotation backup exists"; else fail "no rotation backup found"; fi
     rm -rf "$tmpd"
 }

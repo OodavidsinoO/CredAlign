@@ -59,7 +59,7 @@ The unit test fixture uses `127.0.0.2` (loopback, no SSH) which fails in ~3ms. `
 `[[ -t 1 ]]` guard sets all color vars to empty strings when stdout is not a terminal. Color references in error messages (stderr) still work with `[[ -t 2 ]]`. Don't assume colors are always present.
 
 ### Remote stderr is captured, not suppressed
-`change_password_remote` captures remote stderr to a temp file and logs it via `log_info` to the error log. `CHPASSWD_FAIL(97)` in results means check `credflip_errors.log` for the remote error message.
+`change_password_remote` captures remote stderr to a temp file and logs it via `log_info` to the error log. `CHPASSWD_FAIL(97)` in results means check `credalign_errors.log` for the remote error message.
 
 ### `sort -V` removed — use plain `sort`
 The script targets BusyBox compatibility where possible. Result sorting uses plain `sort` (defaults to lexicographic, which works for IP/status lines).
@@ -69,7 +69,7 @@ The script targets BusyBox compatibility where possible. Result sorting uses pla
 | Code | Meaning |
 |------|---------|
 | 0 | All targets OK |
-| 1 | Partial failures (check `credflip_errors.log`) |
+| 1 | Partial failures (check `credalign_errors.log`) |
 | 2 | Bad args |
 | 3 | Missing deps, root user in inventory, empty inventory |
 | 4 | SIGINT/SIGTERM |

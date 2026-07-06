@@ -7,9 +7,9 @@ set -o pipefail
 # ── Globals ─────────────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INVENTORY_FILE="${SCRIPT_DIR}/inventory.txt"
-STATE_FILE="${SCRIPT_DIR}/credflip_state_$(date +%Y%m%d).txt"
-ERROR_LOG="${SCRIPT_DIR}/credflip_errors.log"
-DEBUG_LOG="${SCRIPT_DIR}/credflip_debug.log"
+STATE_FILE="${SCRIPT_DIR}/credalign_state_$(date +%Y%m%d).txt"
+ERROR_LOG="${SCRIPT_DIR}/credalign_errors.log"
+DEBUG_LOG="${SCRIPT_DIR}/credalign_debug.log"
 
 LOCK_FILE="/tmp/credalign_${UID:-$(id -u)}.lock"
 RESULTS_TMP=""
@@ -62,12 +62,12 @@ ENVIRONMENT:
   CONNECT_DELAY     Delay between connection starts     (default: 0.05s)
   SSH_RETRIES       Connection retry attempts           (default: 2)
   GLOBAL_TIMEOUT    Overall timeout in seconds          (default: 1800)
-  DEBUG=1           Enable debug logging to credflip_debug.log
+  DEBUG=1           Enable debug logging to credalign_debug.log
 
 FILES:
   inventory.txt                    CSV (no header): ip,username,original_password
-  credflip_state_YYYYMMDD.txt      Daily state ledger
-  credflip_errors.log              Error log
+  credalign_state_YYYYMMDD.txt      Daily state ledger
+  credalign_errors.log              Error log
 USAGE
     exit 2
 }
