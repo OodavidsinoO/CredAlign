@@ -1,27 +1,27 @@
 # CredAlign — Enterprise Credential Alignment Tool
 
-为 Nessus 扫描临时统一数百台 Linux 主机的 root/sudo 密码，事后可回退至各自原始密码。
+Temporarily aligns passwords across hundreds of Linux hosts for Nessus scanning, then reverts to original passwords.
 
-## 目录结构
+## Directory Structure
 
 ```
 CredAlign/
-├── CredAlign.sh              # 主脚本
-├── inventory.txt             # 主机清单 (创建方式见下文)
+├── CredAlign.sh              # Main script
+├── inventory.txt             # Host inventory (see below)
 ├── tests/
-│   ├── test_runner.sh        # 测试入口
-│   ├── test_unit.sh          # 单元测试 (纯逻辑, 无需外部环境)
-│   └── test_integration.sh   # 集成测试 (需 SSH 目标主机)
-├── fixtures/                 # 测试用 inventory 样本
+│   ├── test_runner.sh        # Test orchestrator
+│   ├── test_unit.sh          # Unit tests (logic only, no network needed)
+│   └── test_integration.sh   # Integration tests (SSH target required)
+├── fixtures/                 # Sample inventory files for testing
 └── README.md
 ```
 
-## 依赖
+## Dependencies
 
-- **本地**: `bash >= 4.3`, `sshpass`, `ssh`, `flock`, `base64` (或 `openssl` / `python3`), `mktemp`
-- **远程**: `chpasswd` (推荐) 或 `passwd --stdin` (RHEL 系 fallback), `base64` (或 `openssl`)
+- **Local**: `bash >= 4.3`, `sshpass`, `ssh`, `flock`, `base64` (or `openssl` / `python3`), `mktemp`
+- **Remote**: `chpasswd` (preferred) or `passwd --stdin` (RHEL family fallback), `base64` (or `openssl`)
 
-### 安装依赖
+### Installing Dependencies
 
 ```bash
 # Debian/Ubuntu
@@ -31,9 +31,9 @@ apt install sshpass coreutils util-linux
 yum install sshpass coreutils
 ```
 
-## 快速开始
+## Quick Start
 
-### 1. 创建 inventory.txt
+### 1. Create inventory.txt
 
 ```csv
 192.168.1.10,admin,original_pass_for_admin
@@ -41,152 +41,156 @@ yum install sshpass coreutils
 192.168.1.12,deploy,deploy456
 ```
 
-- 无表头 CSV: `ip,username,original_password`
-- 支持 `#` 注释行和空行
-- **严禁**包含 `root` 用户名, 脚本会拒绝执行
+- Headerless CSV: `ip,username,original_password`
+- `#` comment lines and blank lines are supported
+- **Never** include `root` as username — the script will refuse to run
 
-### 2. 运行
+### 2. Run
 
 ```bash
-# 设置目标统一密码 (推荐)
+# Set the unified target password (recommended)
 export TARGET_PASSWORD="NessusTemp2024!"
 
-# 三种模式:
+# Three modes:
 
-# 1) 干跑 — 测试所有主机 SSH 可达性, 不做任何修改, 不写状态文件
+# 1) Dry-run — test SSH connectivity + probe remote chpasswd/sudo capability
 bash CredAlign.sh --dry-run
 
-# 2) 修改 — 批量将所有主机密码从 original → TARGET_PASSWORD
+# 2) Change — batch-change all passwords from original → TARGET_PASSWORD
 bash CredAlign.sh --change
 
-# 3) 回退 — 批量将所有主机密码从 TARGET_PASSWORD → original
+# 3) Revert — batch-revert all passwords from TARGET_PASSWORD → original
 bash CredAlign.sh --revert
 ```
 
-如果未设置 `TARGET_PASSWORD` 环境变量, 脚本会交互式提示输入 (带确认)。
+If `TARGET_PASSWORD` is not set, the script prompts interactively (with confirmation).
 
-## 环境变量
+## Environment Variables
 
-| 变量 | 默认值 | 说明 |
+| Variable | Default | Description |
 |---|---|---|
-| `TARGET_PASSWORD` | (提示) | 统一目标密码 |
-| `MAX_PARALLEL` | 10 | 最大并发连接数 |
-| `CONNECT_DELAY` | 0.05 | 连接间启动延迟 (秒) |
-| `SSH_RETRIES` | 2 | 连接重试次数 |
-| `GLOBAL_TIMEOUT` | 1800 | 全局超时 (秒) |
-| `DEBUG` | 0 | 设为 1 开启调试日志 |
+| `TARGET_PASSWORD` | (prompted) | Unified target password |
+| `MAX_PARALLEL` | 10 | Max concurrent connections |
+| `CONNECT_DELAY` | 0.05 | Startup delay between connections (sec) |
+| `SSH_RETRIES` | 2 | Connection retry count |
+| `GLOBAL_TIMEOUT` | 1800 | Global timeout (sec) |
+| `DEBUG` | 1 | Enable debug logging |
 
-## 运行模式
+## Modes
 
 ### `--dry-run`
 
-- 使用 `original_password` 测试 SSH 连接
-- **不写**状态文件, **不改**密码
-- 输出每台主机的连通状态: `CONNECT_OK`, `AUTH_FAIL`, `CONN_FAIL`
+- Tests SSH connectivity using `original_password`
+- For each reachable host, probes remote password-change capability:
+  - Available tool: `chpasswd` or `passwd --stdin`
+  - Sudo method: `sudo_n` (passwordless), `sudo_S` (password-piped), `raw` (root user)
+- Output format: `CAP:<tool>:<method>` (e.g. `CAP:chpasswd:sudo_S`)
+- **Does NOT** write state file, does **NOT** change passwords
+- Unreachable hosts still report `CONN_FAIL`, `AUTH_FAIL`
 
 ### `--change`
 
-- **Attempt 1**: 用 `original_password` 连接 → `chpasswd` 改为 `TARGET_PASSWORD`
-- **Attempt 2 (fallback)**: 若认证失败, 尝试用 `TARGET_PASSWORD` 连接 → 标记为已处理 (前次运行已完成)
-- 每台成功修改的主机写入 `SUCCESS_CHANGE` 到状态文件
+- **Attempt 1**: Connect with `original_password` → `chpasswd` to `TARGET_PASSWORD`
+- **Attempt 2 (fallback)**: On auth failure, try `TARGET_PASSWORD` → mark as already processed (previous run completed)
+- Writes `SUCCESS_CHANGE` to state file for each successfully changed host
 
 ### `--revert`
 
-- **Attempt 1**: 用 `TARGET_PASSWORD` 连接 → `chpasswd` 改回 `original_password`
-- **Attempt 2 (fallback)**: 若认证失败, 尝试用 `original_password` 连接 → 标记为已回退
-- 每台成功回退的主机写入 `SUCCESS_REVERT` 到状态文件
+- **Attempt 1**: Connect with `TARGET_PASSWORD` → `chpasswd` back to `original_password`
+- **Attempt 2 (fallback)**: On auth failure, try `original_password` → mark as already reverted
+- Writes `SUCCESS_REVERT` to state file for each successfully reverted host
 
-## 生成的文件
+## Generated Files
 
-| 文件 | 说明 |
+| File | Description |
 |---|---|
-| `credflip_state_YYYYMMDD.txt` | 每日状态台账: `ip,username,status,timestamp` |
-| `credflip_errors.log` | 错误日志 (>10MB 自动轮转) |
-| `credflip_debug.log` | 调试日志 (仅 DEBUG=1 时) |
+| `credflip_state_YYYYMMDD.txt` | Daily state ledger: `ip,username,status,timestamp` |
+| `credflip_errors.log` | Error log (auto-rotated at >10MB) |
+| `credflip_debug.log` | Debug log (only when DEBUG=1) |
 
-### 状态文件示例
+### State File Example
 
 ```
 192.168.1.10,admin,SUCCESS_CHANGE,1750000000
 192.168.1.11,ops,SUCCESS_REVERT,1750000060
 ```
 
-重新运行时, 已标记为对应状态的条目会被**自动跳过** (幂等性)。
+Entries matching the current mode's status are **automatically skipped** on re-run (idempotency).
 
-## 安全特性
+## Security
 
-- **密码不在进程表暴露**: `SSHPASS` 环境变量 + `sshpass -e`
-- **远程密码 base64 编码传输**: 远程端解码后管传 `chpasswd`
-- **拒绝 root 用户**: inventory 中任何 `username=root` 的行都会导致脚本退出
-- **单实例锁**: `/tmp/credalign_UID.lock` + `flock` 防止并发执行 (多用户独立锁)
-- **严格 SSH 选项**: `PubkeyAuthentication=no`, `PasswordAuthentication=yes`, `PreferredAuthentications=password`, 所有主机 key 不写入 known_hosts
+- **Passwords never in process tree**: `SSHPASS` env var + `sshpass -e`
+- **Remote password via base64**: decoded on remote, piped to `chpasswd`
+- **Root user rejected**: any `username=root` line causes script to exit
+- **Single-instance lock**: `/tmp/credalign_UID.lock` + `flock` (per-UID isolation)
+- **Strict SSH options**: `PubkeyAuthentication=no`, `PasswordAuthentication=yes`, `PreferredAuthentications=password`, host keys never written to known_hosts
 
-## 兼容性
+## Compatibility
 
-### 远端密码修改方案 (按优先级)
+### Remote Password Change (priority order)
 
-1. `chpasswd` → 最通用 (所有主流发行版)
-2. `passwd --stdin` → RHEL/CentOS/Amazon Linux 2 等
+1. `chpasswd` → most universal (all major distros)
+2. `passwd --stdin` → RHEL/CentOS/Amazon Linux 2 etc.
 
-### sudo 策略
+### Sudo Strategy
 
-- 先尝试 `sudo -n` (免密 sudo)
-- 若失败, 使用 `sudo -S` (通过 stdin 传入用户密码)
-- 若 sudo 不可用, 直接调用 chpasswd (用户为 root 时生效)
+- Try `sudo -n` first (passwordless sudo)
+- On failure, use `sudo -S` (feed user's password via stdin)
+- If sudo unavailable, invoke chpasswd directly (root users)
 
-## 退出码
+## Exit Codes
 
-| 码 | 含义 |
+| Code | Meaning |
 |---|---|
-| 0 | 全部成功 |
-| 1 | 部分主机失败 (查看 `credflip_errors.log`) |
-| 2 | 参数错误 |
-| 3 | 前置条件不满足 (工具缺失/root 拒绝) |
-| 4 | 用户中断 (SIGINT/SIGTERM) |
-| 5 | 另一实例正在运行 |
+| 0 | All targets OK |
+| 1 | Partial failures (check `credflip_errors.log`) |
+| 2 | Bad arguments |
+| 3 | Preconditions not met (missing tools / root in inventory) |
+| 4 | Interrupted (SIGINT/SIGTERM) |
+| 5 | Another instance running |
 
-## 测试
+## Testing
 
-### 单元测试 (无需外部环境)
+### Unit Tests (no external environment needed)
 
 ```bash
 bash tests/test_runner.sh --unit
 ```
 
-### 集成测试 (需可访问的 SSH 目标)
+### Integration Tests (requires reachable SSH target)
 
 ```bash
 TARGET_PASSWORD="your_password" bash tests/test_runner.sh --integration
 ```
 
-### 全部测试
+### All Tests
 
 ```bash
 TARGET_PASSWORD="your_password" bash tests/test_runner.sh --all
 ```
 
-## 典型工作流
+## Typical Workflow
 
 ```bash
-# 1. 准备 inventory
+# 1. Prepare inventory
 cat > inventory.txt <<EOF
 192.168.1.10,admin,pa$$w0rd1
 192.168.1.11,ops,s3cret!
 192.168.1.12,deploy,deploy123
 EOF
 
-# 2. 干跑验证
+# 2. Dry-run verification
 export TARGET_PASSWORD="TempNessus2024!"
 bash CredAlign.sh --dry-run
 
-# 3. 执行修改
+# 3. Execute change
 bash CredAlign.sh --change
 
-# 4. Nessus 扫描 ...
+# 4. Nessus scan ...
 
-# 5. 回退密码
+# 5. Revert passwords
 bash CredAlign.sh --revert
 
-# 6. 验证回退
+# 6. Verify revert
 bash CredAlign.sh --dry-run
 ```

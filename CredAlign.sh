@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -o pipefail
 # ============================================================================
-# CredAlign.sh v1.0.1 — Enterprise Credential Alignment for Nessus Scanning
+# CredAlign.sh v1.1.0 — Enterprise Credential Alignment for Nessus Scanning
 # ============================================================================
 
 # ── Globals ─────────────────────────────────────────────────────────────────
@@ -30,7 +30,7 @@ TOTAL_HOSTS=0
 SKIP_COUNT=0
 LOCK_FD=""
 START_TIME=$(date +%s)
-VERSION="1.0.1"
+VERSION="1.1.0"
 TIMEOUT_PID=""
 
 # ── ANSI ────────────────────────────────────────────────────────────────────
@@ -45,13 +45,14 @@ fi
 # ── Usage ───────────────────────────────────────────────────────────────────
 usage() {
     cat <<'USAGE'
-CredAlign.sh v1.0.0 — Enterprise Credential Alignment Tool
+CredAlign.sh v1.1.0 — Enterprise Credential Alignment Tool
 
 USAGE:
   CredAlign.sh --dry-run | --change | --revert
 
 MODES:
-  --dry-run   Test SSH connectivity (no changes; does NOT write state file)
+  --dry-run   Test SSH connectivity + probe remote chpasswd/sudo capability
+               (no changes; does NOT write state file)
   --change    Change all host passwords from original → TARGET_PASSWORD
   --revert    Revert all host passwords from TARGET_PASSWORD → original
 
@@ -322,13 +323,63 @@ fi"
     return "$ec"
 }
 
+# ── Remote Capability Probe ──────────────────────────────────────────────────
+probe_remote_capability() {
+    local ip="$1" user="$2" auth_pass="$3"
+
+    local b64_auth
+    b64_auth=$(_b64enc "$auth_pass")
+
+    local probe_cmd
+    probe_cmd="_a=\$(printf '%s' '${b64_auth}' | { base64 -d 2>/dev/null || openssl base64 -d 2>/dev/null; }) || { printf 'CAP_PROBE_B64_FAIL'; exit 90; }
+if command -v chpasswd >/dev/null 2>&1; then
+    tool='chpasswd'
+elif passwd --help 2>&1 | grep -q -- '--stdin'; then
+    tool='passwd_stdin'
+else
+    printf 'CAP_NO_TOOL'; exit 0
+fi
+if sudo -n true 2>/dev/null; then
+    method='sudo_n'
+elif command -v sudo >/dev/null 2>&1; then
+    if printf '%s\n' \"\$_a\" | sudo -S -p '' true 2>/dev/null; then
+        method='sudo_S'
+    else
+        method='sudo_S_fail'
+    fi
+else
+    method='raw'
+fi
+printf 'CAP:%s:%s' \"\$tool\" \"\$method\""
+
+    local ec result
+    result=$(SSHPASS="$auth_pass" sshpass -e ssh $SSH_OPT "$user@$ip" "$probe_cmd" 2>/dev/null)
+    ec=$?
+    if [[ -z "$result" ]]; then
+        printf 'CAP_PROBE_FAIL(%d)' "$ec"
+    else
+        printf '%s' "$result"
+    fi
+}
+
 # ── Mode: Dry Run ───────────────────────────────────────────────────────────
 do_dry_run() {
     local ip="$1" user="$2" pass="$3"
     test_auth "$ip" "$user" "$pass"
     local ec=$?
     case "$ec" in
-        0) log_result "$ip" "CONNECT_OK"      ; return 0 ;;
+        0)
+            local cap
+            cap=$(probe_remote_capability "$ip" "$user" "$pass")
+            if [[ "$cap" =~ ^CAP:(chpasswd|passwd_stdin):(sudo_n|sudo_S|raw)$ ]]; then
+                log_result "$ip" "$cap"
+                return 0
+            else
+                log_result "$ip" "$cap"
+                log_error "$ip" "$user" "Capability probe: $cap"
+                return 1
+            fi
+            ;;
         5) log_result "$ip" "AUTH_FAIL"       ; log_error "$ip" "$user" "AUTH_FAILED on dry-run"; return 1 ;;
         6) log_result "$ip" "HOSTKEY_REJECT"  ; log_error "$ip" "$user" "Host key rejected on dry-run"; return 1 ;;
         *) log_result "$ip" "CONN_FAIL($ec)"  ; log_error "$ip" "$user" "Connection failed on dry-run (code=$ec)"; return 1 ;;
@@ -547,7 +598,7 @@ run_batch() {
     local elapsed=$((SECONDS - start_ts))
     local ok=0 fail=0
     if [[ -f "$RESULTS_TMP" && -s "$RESULTS_TMP" ]]; then
-        ok=$(grep -cE 'SUCCESS|CONNECT_OK' "$RESULTS_TMP" 2>/dev/null) || ok=0
+        ok=$(grep -cE 'SUCCESS|CAP:(chpasswd|passwd_stdin):(sudo_n|sudo_S|raw)  ' "$RESULTS_TMP" 2>/dev/null) || ok=0
         [[ -z "$ok" ]] && ok=0
         fail=$((processed - ok))
     fi

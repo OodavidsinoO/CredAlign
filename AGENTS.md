@@ -2,7 +2,10 @@
 
 ## Project overview
 
-Single-file enterprise Bash script (`CredAlign.sh`, ~650 LOC) that temporarily aligns passwords across hundreds of Linux hosts for Nessus scanning, then reverts them. Inventory is a CSV without headers (`ip,username,original_password`). Three modes: `--dry-run`, `--change`, `--revert`.
+Single-file enterprise Bash script (`CredAlign.sh`, ~700 LOC) that temporarily aligns passwords across hundreds of Linux hosts for Nessus scanning, then reverts them. Inventory is a CSV without headers (`ip,username,original_password`). Three modes: `--dry-run`, `--change`, `--revert`.
+
+### v1.1.0: Dry-run now probes remote capability
+`--dry-run` connects to each host and probes: (a) available tool (`chpasswd` or `passwd_stdin`), (b) sudo method (`sudo_n` / `sudo_S` / `raw`). Output format: `CAP:<tool>:<method>` (e.g. `CAP:chpasswd:sudo_S`). The old `CONNECT_OK` status is gone. `probe_remote_capability()` mirrors `change_password_remote()` but uses `true`/`id` instead of `chpasswd` — never modifies passwords.
 
 ## Dev commands
 

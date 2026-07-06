@@ -98,10 +98,10 @@ test_dry_run() {
         fail "--dry-run exit $ec (expected 0)"
     fi
 
-    if echo "$out" | grep -q 'CONNECT_OK'; then
-        ok "dry-run reports CONNECT_OK"
+    if echo "$out" | grep -qE 'CAP:(chpasswd|passwd_stdin):(sudo_n|sudo_S|raw)'; then
+        ok "dry-run reports CAP capability"
     else
-        fail "dry-run did NOT report CONNECT_OK"
+        fail "dry-run did NOT report CAP capability"
         printf '    Output: %s\n' "$(echo "$out" | tail -5)"
     fi
 

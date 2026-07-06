@@ -202,10 +202,63 @@ test_auth_logic() {
     out=$(cd "$tmpd" && TARGET_PASSWORD="dummy" bash ./CredAlign.sh --dry-run 2>&1); ec=$?
     assert_contains "unreachable → CONN_FAIL" "$out" "CONN_FAIL"
     assert_not_contains "unreachable → no AUTH_ERROR" "$out" "AUTH_ERROR"
+    assert_not_contains "unreachable → no CAP probe" "$out" "CAP:"
     assert_ne "failing host → non-zero exit" 0 "$ec"
     rm -rf "$tmpd"
 }
 
+# ────────────────────────────────────────────────────────────────────────────
+test_capability_regex() {
+    header "CAP Result Regex (ok counting)"
+    local test_file="/tmp/credalign_test_cap_$$"; > "$test_file"
+
+    printf '%-16s  %-22s  %s\n' '192.168.1.1' 'CAP:chpasswd:sudo_n' '12:00:00' >> "$test_file"
+    printf '%-16s  %-22s  %s\n' '192.168.1.2' 'CAP:chpasswd:sudo_S' '12:00:01' >> "$test_file"
+    printf '%-16s  %-22s  %s\n' '192.168.1.3' 'CAP:chpasswd:raw' '12:00:02' >> "$test_file"
+    printf '%-16s  %-22s  %s\n' '192.168.1.4' 'CAP:passwd_stdin:sudo_n' '12:00:03' >> "$test_file"
+    printf '%-16s  %-22s  %s\n' '192.168.1.5' 'CAP:passwd_stdin:sudo_S' '12:00:04' >> "$test_file"
+    printf '%-16s  %-22s  %s\n' '192.168.1.6' 'CAP:passwd_stdin:raw' '12:00:05' >> "$test_file"
+    printf '%-16s  %-22s  %s\n' '192.168.1.7' 'CAP_NO_TOOL' '12:00:06' >> "$test_file"
+    printf '%-16s  %-22s  %s\n' '192.168.1.8' 'CAP:chpasswd:sudo_S_fail' '12:00:07' >> "$test_file"
+    printf '%-16s  %-22s  %s\n' '192.168.1.9' 'CAP_PROBE_FAIL(255)' '12:00:08' >> "$test_file"
+    printf '%-16s  %-22s  %s\n' '192.168.1.10' 'SUCCESS_CHANGE' '12:00:09' >> "$test_file"
+
+    local ok_count fail_count; ok_count=""
+    ok_count=$(grep -cE 'SUCCESS|CAP:(chpasswd|passwd_stdin):(sudo_n|sudo_S|raw)  ' "$test_file" 2>/dev/null) || ok_count=0
+    [[ -z "$ok_count" ]] && ok_count=0
+    assert_eq "regex → 7 ok (6 CAP good + 1 SUCCESS)" 7 "$ok_count"
+
+    local fail_count; fail_count=""
+    fail_count=$(grep -cE 'NO_TOOL|sudo_S_fail|PROBE_FAIL|B64_FAIL' "$test_file" 2>/dev/null) || fail_count=0
+    [[ -z "$fail_count" ]] && fail_count=0
+    assert_eq "regex → 3 failures excluded (NO_TOOL, sudo_S_fail, PROBE_FAIL)" 3 "$fail_count"
+
+    rm -f "$test_file"
+}
+
+# ────────────────────────────────────────────────────────────────────────────
+test_probe_function_exists() {
+    header "probe_remote_capability Function"
+
+    if grep -q 'probe_remote_capability()' "$PROJECT_DIR/CredAlign.sh"; then
+        ok "probe_remote_capability defined"
+    else
+        fail "probe_remote_capability NOT found in script"
+    fi
+
+    if grep -q 'command -v chpasswd' "$PROJECT_DIR/CredAlign.sh" \
+        && grep -q 'sudo -n true' "$PROJECT_DIR/CredAlign.sh"; then
+        ok "probe checks chpasswd + sudo"
+    else
+        fail "probe missing chpasswd/sudo checks"
+    fi
+
+    if grep -q 'sudo -S -p' "$PROJECT_DIR/CredAlign.sh"; then
+        ok "probe detects sudo_S capability"
+    else
+        fail "probe missing sudo_S detection"
+    fi
+}
 # ────────────────────────────────────────────────────────────────────────────
 test_state_file() {
     header "State File & Idempotency"
@@ -304,6 +357,8 @@ main() {
     test_special_chars
     test_ssh_options
     test_auth_logic
+    test_capability_regex
+    test_probe_function_exists
     test_state_file
     test_lock
     test_dry_run_isolation
